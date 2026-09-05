@@ -2,7 +2,11 @@
 
 A browser extension that overlays **S2 cells (Level 14 & Level 17)** directly on the [Scopely Wayfarer](https://wayfarer.scopely.com/new/mapview) map.
 
-![PokéStop & Gym Planning Grid screenshot](assets/screenshot.png)
+## Feature showcase
+
+Select an L14 area to highlight its S2 boundaries and view live Wayspot, PokéStop, Gym, Power Spot, and empty PokéStop slot metrics in the planning panel.
+
+![Selected L14 area with Pokémon GO planning metrics](assets/screenshot.png)
 
 ## What are S2 cells?
 
