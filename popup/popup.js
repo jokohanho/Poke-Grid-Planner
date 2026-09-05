@@ -11,11 +11,15 @@ const colorL14     = document.getElementById('colorL14');
 const colorL17     = document.getElementById('colorL17');
 const applyBtn     = document.getElementById('applyBtn');
 const addNomBtn    = document.getElementById('addNomBtn');
+const analyzeBtn    = document.getElementById('analyzeBtn');
 const nomList      = document.getElementById('nomList');
 const seeAllBtn    = document.getElementById('seeAllBtn');
+const wayfarerMapUrlEl = document.getElementById('wayfarerMapUrl');
 
 let currentTab = null;
 let isActive   = false;
+
+wayfarerMapUrlEl.textContent = S2Wayfarer.getMapUrl().replace(/^https:\/\//, '');
 
 function getSettings() {
   return { l14: chkL14.checked, l17: chkL17.checked, l14Color: colorL14.value, l17Color: colorL17.value };
@@ -54,8 +58,13 @@ async function queryStatus() {
   currentTab = tab;
 
   // Must be on Wayfarer
-  if (!S2Wayfarer.isWayfarerMapUrl(tab.url)) {
+  if (!S2Wayfarer.isWayfarerUrl(tab.url)) {
     showNoMapUI('Not on Wayfarer');
+    return;
+  }
+
+  if (!S2Wayfarer.isWayfarerMapUrl(tab.url)) {
+    showNoMapUI('Open the Wayfarer map');
     return;
   }
 
@@ -184,6 +193,14 @@ addNomBtn.addEventListener('click', () => {
   if (!currentTab) return;
   chrome.tabs.sendMessage(currentTab.id, { type: 'S2_START_PICK' }, () => {
     // Popup closes so the user can click the map; pick mode lives in the page.
+    window.close();
+  });
+});
+
+analyzeBtn.addEventListener('click', () => {
+  if (!currentTab) return;
+  chrome.tabs.sendMessage(currentTab.id, { type: 'S2_START_L14_SELECTION' }, response => {
+    if (chrome.runtime.lastError || !response || !response.ok) return;
     window.close();
   });
 });

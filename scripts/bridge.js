@@ -30,6 +30,21 @@
     return { swLat: sw.lat(), swLng: sw.lng(), neLat: ne.lat(), neLng: ne.lng(), zoom: map.getZoom() };
   }
 
+  let dataTimer = null;
+  function requestMapData(bounds) {
+    if (!bounds) return;
+    const query = `ne=(${bounds.neLat},${bounds.neLng})&sw=(${bounds.swLat},${bounds.swLng})&cellLevel=14`;
+    fetch(`${S2Wayfarer.mapDataPath}?${query}`, { credentials: 'include' })
+      .then(response => response.ok ? response.json() : null)
+      .then(payload => { if (payload) dispatch({ type: 'map-data', data: payload }); })
+      .catch(() => dispatch({ type: 'map-data-error' }));
+  }
+
+  function scheduleMapData(map) {
+    clearTimeout(dataTimer);
+    dataTimer = setTimeout(() => requestMapData(serializeBounds(map)), 200);
+  }
+
   function dispatch(detail) {
     window.dispatchEvent(new CustomEvent('s2:response', { detail }));
   }
@@ -41,6 +56,11 @@
     dispatch({ type: 'bounds', bounds });
   });
 
+  // The isolated-world analyzer can request the exact selected L14 bounds.
+  window.addEventListener('s2:data-request', function(event) {
+    requestMapData(event.detail);
+  });
+
   let attached = false;
   function attachListeners(map) {
     if (attached) return;
@@ -48,7 +68,10 @@
     ['bounds_changed', 'zoom_changed', 'idle'].forEach(evt => {
       map.addListener(evt, function() {
         const bounds = serializeBounds(map);
-        if (bounds) dispatch({ type: 'bounds', bounds });
+        if (bounds) {
+          dispatch({ type: 'bounds', bounds });
+          if (evt === 'idle') scheduleMapData(map);
+        }
       });
     });
 
@@ -70,7 +93,13 @@
   function waitAndAttach(attempts) {
     if (attempts > 120) return;
     const map = getMap();
-    if (map) { attachListeners(map); dispatch({ type: 'bounds', bounds: serializeBounds(map) }); return; }
+    if (map) {
+      attachListeners(map);
+      const bounds = serializeBounds(map);
+      dispatch({ type: 'bounds', bounds });
+      requestMapData(bounds);
+      return;
+    }
     setTimeout(() => waitAndAttach(attempts + 1), 250);
   }
   waitAndAttach(0);

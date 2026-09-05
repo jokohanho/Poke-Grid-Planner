@@ -1,4 +1,4 @@
-// S2 Cell Overlay – Wayfarer (isolated world)
+// PokéStop & Gym Planning Grid (isolated world)
 (function () {
   'use strict';
 
@@ -15,8 +15,20 @@
   let pickMode = false;
   let pendingBox = null;       // the open inline input box, if any
 
+  // L14 analysis is separate from the existing overlay and nomination modes.
+  // The current map bridge does not expose verified Wayspot records, so null
+  // means metrics are unavailable rather than zero.
+  let l14SelectionMode = false;
+  let selectedL14Cell = null;
+  let selectedL14Metrics = null;
+  let wayfarerMapRecords = null;
+  let highlightEmptyL17 = false;
+  let analysisPanel = null;
+
   // Shared emoji palette (scripts/emoji.js loads before this in the manifest)
   const { DEFAULT_EMOJI, buildEmojiPicker } = window.S2Emoji;
+  const { calculateL14Metrics, createSelectionController, normalizeWayfarerMapData } = window.S2L14Analysis;
+  const l14Selection = createSelectionController(handleL14SelectionChange);
 
   // ── Mercator projection ────────────────────────────────────────────────────
   // Google Maps uses Web Mercator (EPSG:3857). We must use the same math
@@ -50,7 +62,7 @@
   }
 
   function renderOverlay(bounds) {
-    if (!overlayActive) return;
+    if (!overlayActive && !selectedL14Cell) return;
     const svg = getOrCreateSVG();
     if (!svg) return;
     svg.innerHTML = '';
@@ -59,10 +71,13 @@
     if (!mapDiv) return;
     const w = mapDiv.offsetWidth, h = mapDiv.offsetHeight;
     const zoom = bounds.zoom;
-    const showL14 = settings.l14 && zoom >= 8;
-    const showL17 = settings.l17 && zoom >= 12;
+    const showL14 = overlayActive && settings.l14 && zoom >= 8;
+    const showL17 = overlayActive && settings.l17 && zoom >= 12;
 
-    if (!showL14 && !showL17) { showZoomHint(zoom); return; }
+    if (!showL14 && !showL17 && overlayActive && !selectedL14Cell) {
+      showZoomHint(zoom);
+      return;
+    }
     hideZoomHint();
 
     function drawCells(cells, color, strokeW, fillOpacity) {
@@ -84,6 +99,13 @@
 
     if (showL17) drawCells(S2.getCellsForBounds(bounds.swLat, bounds.swLng, bounds.neLat, bounds.neLng, 17), settings.l17Color, 1, '0.04');
     if (showL14) drawCells(S2.getCellsForBounds(bounds.swLat, bounds.swLng, bounds.neLat, bounds.neLng, 14), settings.l14Color, 2, '0.06');
+
+    if (selectedL14Cell) {
+      if (highlightEmptyL17 && selectedL14Metrics && selectedL14Metrics.dataAvailable) {
+        drawCells(selectedL14Metrics.emptyL17Cells, '#ffca28', 1, '0.09');
+      }
+      drawCells([selectedL14Cell], '#ffca28', 4, '0.12');
+    }
   }
 
   function requestBounds() {
@@ -158,7 +180,7 @@
 
   // Reposition / redraw everything that depends on bounds
   function refreshMapLayers(bounds) {
-    if (overlayActive) renderOverlay(bounds);
+    if (overlayActive || selectedL14Cell) renderOverlay(bounds);
     renderNominations(bounds);
     if (pendingBox && pendingBox._lat != null) {
       const mapDiv = document.querySelector('.gm-style');
@@ -182,6 +204,111 @@
     document.body.classList.remove('s2-picking');
     hidePickBanner();
     closeInlineBox();
+  }
+
+  // ── Selected-area analysis ────────────────────────────────────────────────
+
+  function getOrCreateAnalysisPanel() {
+    if (analysisPanel && document.contains(analysisPanel)) return analysisPanel;
+    analysisPanel = document.createElement('section');
+    analysisPanel.id = 's2-l14-analysis';
+    analysisPanel.innerHTML =
+      '<button type="button" class="s2-analysis-close" aria-label="Close selected area">×</button>' +
+      '<div class="s2-analysis-title">📍 Selected area</div>' +
+      '<div class="s2-analysis-grid">' +
+        '<span>Wayspots</span><strong data-metric="wayspots">—</strong>' +
+        '<span>PokéStops</span><strong data-metric="pokestops">—</strong>' +
+        '<span>Gyms</span><strong data-metric="gyms">—</strong>' +
+        '<span>Power Spots</span><strong data-metric="power-spots">—</strong>' +
+        '<span>Empty PokéStop Slots</span><strong data-metric="empty-slots">—</strong>' +
+      '</div>' +
+      '<p class="s2-analysis-note"></p>' +
+      '<label class="s2-analysis-option"><input type="checkbox" data-empty-highlight> Highlight empty PokéStop slots</label>' +
+      '<div class="s2-gym-progress" hidden></div>' +
+      '<details><summary>Cell details</summary><div class="s2-analysis-cell-id"></div></details>';
+    analysisPanel.querySelector('.s2-analysis-close').addEventListener('click', () => {
+      exitL14SelectionMode();
+      l14Selection.clear();
+    });
+    analysisPanel.querySelector('[data-empty-highlight]').addEventListener('change', event => {
+      highlightEmptyL17 = event.target.checked;
+      if (lastBounds) renderOverlay(lastBounds);
+    });
+    document.body.appendChild(analysisPanel);
+    return analysisPanel;
+  }
+
+  function renderAnalysisPanel() {
+    if (!selectedL14Cell) {
+      if (analysisPanel) analysisPanel.style.display = 'none';
+      return;
+    }
+    const panel = getOrCreateAnalysisPanel();
+    const metrics = selectedL14Metrics;
+    const value = metric => metrics.dataAvailable ? String(metric) : '—';
+    panel.querySelector('[data-metric="wayspots"]').textContent = value(metrics.wayspotCount);
+    panel.querySelector('[data-metric="pokestops"]').textContent = value(metrics.pokestopCount);
+    panel.querySelector('[data-metric="gyms"]').textContent = value(metrics.gymCount);
+    panel.querySelector('[data-metric="power-spots"]').textContent = value(metrics.powerSpotCount);
+    panel.querySelector('[data-metric="empty-slots"]').textContent = value(metrics.emptyL17Count);
+    panel.querySelector('.s2-analysis-note').textContent = metrics.dataAvailable
+      ? 'Empty slots count Level 17 areas without an active PokéStop or Gym.'
+      : 'Wayfarer does not expose verified map records to this extension, so live counts are unavailable.';
+    const emptyHighlight = panel.querySelector('[data-empty-highlight]');
+    emptyHighlight.disabled = !metrics.dataAvailable;
+    emptyHighlight.checked = metrics.dataAvailable && highlightEmptyL17;
+    const progress = panel.querySelector('.s2-gym-progress');
+    if (metrics.dataAvailable && metrics.gymProgress.nextThreshold != null) {
+      progress.hidden = false;
+      progress.textContent = `Observed Gym threshold: ${metrics.occupiedL17Count} / ${metrics.gymProgress.nextThreshold} occupied locations — ${metrics.gymProgress.remaining} more needed.`;
+    } else {
+      progress.hidden = true;
+    }
+    panel.querySelector('.s2-analysis-cell-id').textContent = `Grid ID: ${selectedL14Cell.key}`;
+    panel.style.display = 'block';
+  }
+
+  function handleL14SelectionChange(cell) {
+    selectedL14Cell = cell;
+    selectedL14Metrics = cell ? calculateL14Metrics(cell, wayfarerMapRecords, S2) : null;
+    if (!cell) highlightEmptyL17 = false;
+    renderAnalysisPanel();
+    if (cell) {
+      const bounds = cell.corners.reduce((result, corner) => ({
+        swLat: Math.min(result.swLat, corner.lat),
+        swLng: Math.min(result.swLng, corner.lng),
+        neLat: Math.max(result.neLat, corner.lat),
+        neLng: Math.max(result.neLng, corner.lng)
+      }), { swLat: Infinity, swLng: Infinity, neLat: -Infinity, neLng: -Infinity });
+      window.dispatchEvent(new CustomEvent('s2:data-request', { detail: bounds }));
+    }
+    if (lastBounds) refreshMapLayers(lastBounds);
+  }
+
+  function enterL14SelectionMode() {
+    exitPickMode();
+    l14SelectionMode = true;
+    document.body.classList.add('s2-selecting-cell');
+    let banner = document.getElementById('s2-analysis-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 's2-analysis-banner';
+      document.body.appendChild(banner);
+    }
+    banner.textContent = 'Click an area to analyze it. Click it again or press Esc to clear.';
+    banner.style.display = 'block';
+  }
+
+  function exitL14SelectionMode() {
+    l14SelectionMode = false;
+    document.body.classList.remove('s2-selecting-cell');
+    const banner = document.getElementById('s2-analysis-banner');
+    if (banner) banner.style.display = 'none';
+  }
+
+  function updateWayfarerMapRecords(records) {
+    wayfarerMapRecords = Array.isArray(records) ? records : null;
+    if (selectedL14Cell) handleL14SelectionChange(selectedL14Cell);
   }
 
   function showPickBanner() {
@@ -268,13 +395,26 @@
 
   // Capture map clicks relayed from the bridge
   window.addEventListener('s2:response', function(e) {
-    if (e.detail && e.detail.type === 'click' && pickMode) {
+    if (!e.detail || e.detail.type !== 'click') return;
+    if (pickMode) {
       showInlineBox(e.detail.lat, e.detail.lng);
+      return;
     }
+    if (l14SelectionMode) l14Selection.select(S2.getCellAtLatLng(e.detail.lat, e.detail.lng, 14));
+  });
+
+  window.addEventListener('s2:response', function(e) {
+    if (!e.detail || e.detail.type !== 'map-data') return;
+    const records = normalizeWayfarerMapData(e.detail.data);
+    if (records) updateWayfarerMapRecords(records);
   });
 
   document.addEventListener('keydown', function(ev) {
     if (ev.key === 'Escape' && pickMode) exitPickMode();
+    if (ev.key === 'Escape' && (l14SelectionMode || selectedL14Cell)) {
+      exitL14SelectionMode();
+      l14Selection.clear();
+    }
   });
 
   // Re-sync pins when the list is edited/deleted elsewhere (e.g. the manager page)
@@ -360,6 +500,7 @@
     }
 
     if (msg.type === 'S2_START_PICK') {
+      exitL14SelectionMode();
       enterPickMode();
       sendResponse({ ok: true });
       return true;
@@ -379,6 +520,27 @@
     if (msg.type === 'S2_ZOOM_TO') {
       window.dispatchEvent(new CustomEvent('s2:panto', { detail: { lat: msg.lat, lng: msg.lng, zoom: 18 } }));
       sendResponse({ ok: true });
+      return true;
+    }
+
+    if (msg.type === 'S2_START_L14_SELECTION') {
+      enterL14SelectionMode();
+      sendResponse({ ok: true });
+      return true;
+    }
+
+    if (msg.type === 'S2_CLEAR_L14_SELECTION') {
+      exitL14SelectionMode();
+      l14Selection.clear();
+      sendResponse({ ok: true });
+      return true;
+    }
+
+    // Reserved for alternate verified map-data providers. Records must contain
+    // lat/lng and may declare pokemonGoType(s) and powerSpot.
+    if (msg.type === 'S2_SET_WAYFARER_MAP_DATA') {
+      updateWayfarerMapRecords(msg.records);
+      sendResponse({ ok: true, dataAvailable: Array.isArray(wayfarerMapRecords) });
       return true;
     }
   });
