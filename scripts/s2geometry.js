@@ -95,6 +95,36 @@ const S2 = (function() {
     return { face, i, j };
   }
 
+  function createCell(face, i, j, level) {
+    return {
+      key: `${level}_${face}_${i}_${j}`,
+      level,
+      face,
+      i,
+      j,
+      corners: cellCorners(face, i, j, level)
+    };
+  }
+
+  function getCellAtLatLng(lat, lng, level) {
+    const { face, i, j } = latLngToCell(lat, lng, level);
+    return createCell(face, i, j, level);
+  }
+
+  // A three-level S2 refinement divides each axis into eight parts, producing
+  // exactly 64 Level 17 children for a Level 14 cell.
+  function getChildCells(cell, childLevel) {
+    if (!cell || !Number.isInteger(cell.level) || childLevel < cell.level) return [];
+    const scale = 1 << (childLevel - cell.level);
+    const children = [];
+    for (let di = 0; di < scale; di++) {
+      for (let dj = 0; dj < scale; dj++) {
+        children.push(createCell(cell.face, cell.i * scale + di, cell.j * scale + dj, childLevel));
+      }
+    }
+    return children;
+  }
+
   // Get all unique cells covering a bounding box by walking the IJ grid.
   // This is gap-free: we compute the cell range directly from the corner
   // coordinates on each face, then enumerate every cell in that range.
@@ -122,7 +152,7 @@ const S2 = (function() {
         const { face, i, j } = latLngToCell(lat, lng, level);
         const key = `${face}_${i}_${j}`;
         if (!cells.has(key)) {
-          cells.set(key, { key, corners: cellCorners(face, i, j, level) });
+          cells.set(key, createCell(face, i, j, level));
         }
       }
     }
@@ -147,7 +177,7 @@ const S2 = (function() {
             const cLng = corners.reduce((s,c) => s+c.lng, 0) / 4;
             if (cLat >= swLat - cellDeg && cLat <= neLat + cellDeg &&
                 cLng >= swLng - cellDeg && cLng <= neLng + cellDeg) {
-              cells.set(nkey, { key: nkey, corners });
+              cells.set(nkey, createCell(face, ni, nj, level));
             }
           }
         }
@@ -157,7 +187,7 @@ const S2 = (function() {
     return Array.from(cells.values());
   }
 
-  return { getCellsForBounds, latLngToCell, cellCorners };
+  return { getCellsForBounds, latLngToCell, getCellAtLatLng, getChildCells, cellCorners };
 })();
 
 window.S2 = S2;

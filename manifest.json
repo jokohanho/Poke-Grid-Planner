@@ -28,7 +28,7 @@
     },
     {
       "matches": ["*://wayfarer.scopely.com/*"],
-      "js": ["scripts/wayfarer-config.js", "scripts/emoji.js", "scripts/s2geometry.js", "scripts/content.js"],
+      "js": ["scripts/wayfarer-config.js", "scripts/emoji.js", "scripts/s2geometry.js", "scripts/l14-analysis.js", "scripts/content.js"],
       "css": ["styles/overlay.css"],
       "run_at": "document_idle",
       "world": "ISOLATED"
