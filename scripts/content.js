@@ -1,4 +1,4 @@
-// PokéStop & Gym Planning Grid (isolated world)
+// Poke grid planner (isolated world)
 (function () {
   'use strict';
 

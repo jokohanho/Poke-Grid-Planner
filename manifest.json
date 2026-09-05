@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PokéStop & Gym Planning Grid",
-  "version": "1.2.0",
-  "description": "Shows PokéStop and Gym planning grids on Scopely Wayfarer maps",
+  "name": "Poke grid planner",
+  "version": "1.0.0",
+  "description": "Plan Pokémon GO PokéStops and Gyms with Wayfarer map grids",
   "permissions": ["activeTab", "storage", "sidePanel"],
   "host_permissions": ["*://wayfarer.scopely.com/*"],
   "action": {
