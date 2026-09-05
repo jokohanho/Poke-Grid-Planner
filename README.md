@@ -1,6 +1,6 @@
 # S2 Cell Overlay for Wayfarer
 
-A browser extension that overlays **S2 cells (Level 14 & Level 17)** directly on the [Niantic Wayfarer](https://wayfarer.nianticlabs.com/new/mapview) map.
+A browser extension that overlays **S2 cells (Level 14 & Level 17)** directly on the [Scopely Wayfarer](https://wayfarer.scopely.com/new/mapview) map.
 
 ![S2 Cell Overlay screenshot](assets/screenshot.png)
 
@@ -29,7 +29,7 @@ This extension is not on the Chrome Web Store. Install it manually:
 2. Open Chrome and go to `chrome://extensions`
 3. Enable **Developer mode** (top right toggle)
 4. Click **Load unpacked** and select the unzipped `s2-extension` folder
-5. Navigate to `https://wayfarer.nianticlabs.com/new/mapview`
+5. Navigate to `https://wayfarer.scopely.com/new/mapview`
 6. Click the extension icon and toggle **Show S2 cells**
 
 ## Usage
@@ -48,7 +48,7 @@ The extension injects a bridge script into the Wayfarer page that reads the embe
 
 - Chrome / Chromium-based browsers (Edge, Brave, etc.)
 - Manifest V3
-- Tested on `wayfarer.nianticlabs.com/new/mapview`
+- Tested against `wayfarer.scopely.com/new/mapview`
 
 ## Privacy & Security
 
