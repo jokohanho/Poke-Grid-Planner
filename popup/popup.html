@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>S2 Cell Overlay</title>
+  <!-- JLDS design system — https://jlds.jaluwibowo.id/guide/vanilla-html.html -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jarooda/jlds@main/registry/css/all.css">
+  <style>
+    body {
+      width: 260px;
+      font-size: var(--text-sm);
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--brand-800) 0%, var(--brand-600) 100%);
+      padding: var(--space-4) var(--space-4) var(--space-3);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .header h1 {
+      font-size: var(--text-md);
+      font-weight: var(--weight-semibold);
+      color: #fff;
+      letter-spacing: var(--tracking-tight);
+      margin: 0;
+    }
+
+    .header .subtitle {
+      font-size: var(--text-xs);
+      color: rgba(255,255,255,0.7);
+      margin-top: 2px;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      background: var(--surface-sunken);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      background: var(--neutral-300);
+      flex-shrink: 0;
+    }
+    .status-dot.found   { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .status-dot.missing { background: var(--danger); }
+    .status-dot.active  { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 4px var(--accent); }
+      50%     { box-shadow: 0 0 10px var(--accent); }
+    }
+
+    .status-text { font-size: var(--text-xs); color: var(--text-secondary); }
+    .status-type { font-size: var(--text-xs); color: var(--text-tertiary); margin-left: auto; font-style: italic; }
+
+    .main { padding: var(--space-3) var(--space-4); }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+
+    .toggle-label {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+      color: var(--text-primary);
+    }
+
+    .section { margin-bottom: var(--space-3); }
+
+    .section-title {
+      font-size: var(--text-2xs);
+      font-weight: var(--weight-semibold);
+      letter-spacing: var(--tracking-wider);
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: var(--space-2);
+    }
+
+    .collapse-header {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      cursor: pointer;
+      user-select: none;
+      padding: 2px 0;
+    }
+    .collapse-header .section-title { margin-bottom: 0; }
+
+    .chevron {
+      margin-left: auto;
+      font-size: var(--text-2xs);
+      color: var(--text-tertiary);
+      transition: transform var(--duration-fast) var(--ease-standard);
+    }
+    .collapse-header.open .chevron { transform: rotate(90deg); }
+
+    .collapse-body { display: none; margin-top: var(--space-3); }
+    .collapse-body.open { display: block; }
+
+    .tip-wrap { display: inline-flex; }
+    .tip-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      border-radius: var(--radius-full);
+      background: var(--surface-muted);
+      color: var(--text-secondary);
+      font-size: var(--text-2xs);
+      font-weight: var(--weight-bold);
+      cursor: help;
+    }
+    .tip-icon:hover { background: var(--accent); color: var(--text-on-brand); }
+
+    .tooltip {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: var(--surface-overlay);
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      font-size: var(--text-xs);
+      line-height: var(--leading-normal);
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-md);
+      box-shadow: var(--elevation-popover);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity var(--duration-fast) var(--ease-standard);
+      z-index: 20;
+      pointer-events: none;
+    }
+    .tooltip strong { color: var(--text-primary); }
+    .tip-wrap:hover ~ .tooltip { opacity: 1; visibility: visible; }
+
+    .cell-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-2) var(--space-3);
+      background: var(--surface-sunken);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-2);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .cell-row:last-child { margin-bottom: 0; }
+
+    .cell-check input[type=checkbox] {
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    .cell-info { flex: 1; }
+    .cell-name { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-primary); }
+    .cell-desc { font-size: var(--text-2xs); color: var(--text-tertiary); margin-top: 1px; }
+
+    .color-pick {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+    }
+
+    .color-pick input[type=color] {
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      padding: 0;
+      background: none;
+    }
+
+    /* jl-btn block buttons get a little breathing room from siblings above */
+    #applyBtn { margin-top: var(--space-1); }
+    #seeAllBtn { margin-top: var(--space-2); }
+
+    .no-map-msg {
+      text-align: center;
+      padding: var(--space-4) 0 var(--space-2);
+      color: var(--text-tertiary);
+      font-size: var(--text-xs);
+      line-height: var(--leading-relaxed);
+    }
+
+    .no-map-msg .icon { font-size: 28px; margin-bottom: var(--space-2); }
+
+    .supported {
+      margin-top: var(--space-3);
+      font-size: var(--text-2xs);
+      color: var(--text-disabled);
+      text-align: center;
+      line-height: var(--leading-relaxed);
+    }
+
+    .nom-list { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+
+    .nom-empty {
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      text-align: center;
+      padding: var(--space-2) 0;
+    }
+
+    .nom-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      background: var(--surface-sunken);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .nom-body { flex: 1; min-width: 0; cursor: pointer; }
+    .nom-desc {
+      font-size: var(--text-xs);
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+    .nom-meta {
+      font-size: var(--text-2xs);
+      color: var(--text-tertiary);
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .nom-del {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-size: var(--text-base);
+      padding: 2px 4px;
+      line-height: 1;
+    }
+    .nom-del:hover { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⬡ S2 Cell Overlay</h1>
+    <div class="subtitle">Pokémon GO planning tool</div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Checking page…</span>
+    <span class="status-type" id="mapType"></span>
+  </div>
+
+  <div class="main">
+    <div id="mapFoundUI" style="display:none">
+      <div class="toggle-row">
+        <span class="toggle-label">Show S2 cells</span>
+        <label class="jl-switch">
+          <input type="checkbox" id="masterToggle" class="jl-switch__input">
+          <span class="jl-switch__track"><span class="jl-switch__thumb"></span></span>
+        </label>
+      </div>
+
+      <div class="section">
+        <div class="collapse-header open" id="cellHeader">
+          <span class="section-title">Cell levels</span>
+          <span class="tip-wrap" id="tipWrap"><span class="tip-icon">?</span></span>
+          <span class="chevron">▸</span>
+          <div class="tooltip">
+            <strong>Tip:</strong> Zoom in to see L17 cells (zoom ≥12) and L14 cells (zoom ≥8). L14 cells need ~2 stops for 1 gym, 6 for 2 gyms, 20 for 3 gyms.
+          </div>
+        </div>
+
+        <div class="collapse-body open" id="cellBody">
+          <div class="cell-row">
+            <div class="cell-check"><input type="checkbox" id="chkL14" checked></div>
+            <div class="cell-info">
+              <div class="cell-name">Level 14</div>
+              <div class="cell-desc">~10km² — determines gym count</div>
+            </div>
+            <div class="color-pick">
+              <input type="color" id="colorL14" value="#e040fb">
+            </div>
+          </div>
+
+          <div class="cell-row">
+            <div class="cell-check"><input type="checkbox" id="chkL17" checked></div>
+            <div class="cell-info">
+              <div class="cell-name">Level 17</div>
+              <div class="cell-desc">~300m² — one stop per cell</div>
+            </div>
+            <div class="color-pick">
+              <input type="color" id="colorL17" value="#00bcd4">
+            </div>
+          </div>
+
+          <button class="jl-btn jl-btn--primary jl-btn--sm jl-btn--block" id="applyBtn">Apply changes</button>
+        </div>
+      </div>
+
+      <div class="section" style="margin-top:var(--space-4)">
+        <div class="section-title">Future nominations</div>
+        <button class="jl-btn jl-btn--primary jl-btn--sm jl-btn--block" id="addNomBtn">＋ Add future nomination</button>
+        <div id="nomList" class="nom-list"></div>
+        <button class="jl-btn jl-btn--secondary jl-btn--sm jl-btn--block" id="seeAllBtn">See all</button>
+      </div>
+    </div>
+
+    <div id="noMapUI" style="display:none">
+      <div class="no-map-msg">
+        <div class="icon">🗺️</div>
+        <span id="noMapReason">Map not detected yet.</span>
+      </div>
+      <div class="supported">
+        Navigate to wayfarer.nianticlabs.com/new/mapview<br>
+        and wait for the map to fully load.
+      </div>
+      <button class="jl-btn jl-btn--primary jl-btn--block" id="retryBtn" style="margin-top:var(--space-3)">↺ Retry detection</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
