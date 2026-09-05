@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>S2 Cell Overlay</title>
-  <!-- JLDS design system — https://jlds.jaluwibowo.id/guide/vanilla-html.html -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jarooda/jlds@main/registry/css/all.css">
+  <title>PokéStop & Gym Planning Grid</title>
+  <link rel="stylesheet" href="../styles/extension-ui.css">
   <style>
     body {
       width: 260px;
@@ -186,7 +185,7 @@
       background: none;
     }
 
-    /* jl-btn block buttons get a little breathing room from siblings above */
+    /* Block buttons get a little breathing room from siblings above. */
     #applyBtn { margin-top: var(--space-1); }
     #seeAllBtn { margin-top: var(--space-2); }
 
@@ -255,7 +254,7 @@
 </head>
 <body>
   <div class="header">
-    <h1>⬡ S2 Cell Overlay</h1>
+    <h1>⬡ PokéStop & Gym Grid</h1>
     <div class="subtitle">Pokémon GO planning tool</div>
   </div>
 
@@ -268,10 +267,10 @@
   <div class="main">
     <div id="mapFoundUI" style="display:none">
       <div class="toggle-row">
-        <span class="toggle-label">Show S2 cells</span>
-        <label class="jl-switch">
-          <input type="checkbox" id="masterToggle" class="jl-switch__input">
-          <span class="jl-switch__track"><span class="jl-switch__thumb"></span></span>
+        <span class="toggle-label">Show planning grid</span>
+        <label class="s2-switch">
+          <input type="checkbox" id="masterToggle" class="s2-switch__input">
+          <span class="s2-switch__track"><span class="s2-switch__thumb"></span></span>
         </label>
       </div>
 
@@ -308,15 +307,20 @@
             </div>
           </div>
 
-          <button class="jl-btn jl-btn--primary jl-btn--sm jl-btn--block" id="applyBtn">Apply changes</button>
+          <button class="s2-button s2-button--primary s2-button--small s2-button--block" id="applyBtn">Apply changes</button>
         </div>
       </div>
 
       <div class="section" style="margin-top:var(--space-4)">
+        <div class="section-title">Area analysis</div>
+        <button class="s2-button s2-button--secondary s2-button--small s2-button--block" id="analyzeBtn">Analyze map area</button>
+      </div>
+
+      <div class="section" style="margin-top:var(--space-4)">
         <div class="section-title">Future nominations</div>
-        <button class="jl-btn jl-btn--primary jl-btn--sm jl-btn--block" id="addNomBtn">＋ Add future nomination</button>
+        <button class="s2-button s2-button--primary s2-button--small s2-button--block" id="addNomBtn">＋ Add future nomination</button>
         <div id="nomList" class="nom-list"></div>
-        <button class="jl-btn jl-btn--secondary jl-btn--sm jl-btn--block" id="seeAllBtn">See all</button>
+        <button class="s2-button s2-button--secondary s2-button--small s2-button--block" id="seeAllBtn">See all</button>
       </div>
     </div>
 
@@ -326,10 +330,10 @@
         <span id="noMapReason">Map not detected yet.</span>
       </div>
       <div class="supported">
-        Navigate to wayfarer.scopely.com/new/mapview<br>
+        Navigate to <span id="wayfarerMapUrl"></span><br>
         and wait for the map to fully load.
       </div>
-      <button class="jl-btn jl-btn--primary jl-btn--block" id="retryBtn" style="margin-top:var(--space-3)">↺ Retry detection</button>
+      <button class="s2-button s2-button--primary s2-button--block" id="retryBtn" style="margin-top:var(--space-3)">↺ Retry detection</button>
     </div>
   </div>
 
