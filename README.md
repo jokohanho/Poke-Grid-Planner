@@ -1,4 +1,5 @@
-# Poke Grid Planner
+
+# ![Poke Grid Planner](icons/favicon-32x32.png) Poke Grid Planner
 
 A browser extension that overlays **S2 cells (Level 14 & Level 17)** directly on the [Scopely Wayfarer](https://wayfarer.scopely.com/new/mapview) map.
 
