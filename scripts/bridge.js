@@ -34,7 +34,7 @@ function getMap() {
           return map;
         }
       } catch (_) {
-        // Kartan kan fortfarande vara under initiering.
+        
       }
     }
 
